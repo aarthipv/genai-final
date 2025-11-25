@@ -28,6 +28,8 @@
     "pdf-parse": "^1.1.1",
     "pdf2json": "^4.0.0",
     "pdf2pic": "^3.2.0",
-    "pdfjs-dist": "^5.4.394"
+    "pdfjs-dist": "^5.4.394",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
   }
 }

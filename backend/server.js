@@ -5,18 +5,30 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { extractPDFText } from "./pdfutils.js";
 import { chunkText } from "./chunk.js";
-import { saveBatchToFaiss, askSubject } from "./rag.js";
+import { saveBatchToFaiss, askSubject, generateQuiz } from "./rag.js";
 
 import cors from "cors";
+
+import http from "http";
+import { Server } from "socket.io";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = 5003;
 
 // Enable CORS
 app.use(cors());
+
+// Socket.io Setup
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // Allow all origins for dev
+    methods: ["GET", "POST"]
+  }
+});
 
 // Add middleware to parse JSON
 app.use(express.json());
@@ -175,6 +187,64 @@ app.post("/ask/:subject_name", async (req, res) => {
   }
 });
 
+// Quiz Room Storage (In-memory)
+const quizRooms = new Map();
+
+// Generate Quiz Endpoint
+app.post("/quiz/generate/:subject_name", async (req, res) => {
+  try {
+    const subjectName = req.params.subject_name;
+    const quiz = await generateQuiz(subjectName);
+    res.json({ quiz });
+  } catch (error) {
+    console.error("❌ Quiz generation error:", error);
+    res.status(500).json({ error: "Failed to generate quiz", details: error.message });
+  }
+});
+
+// Create Quiz Room Endpoint
+app.post("/quiz/create", (req, res) => {
+  try {
+    const { subject, questions, title } = req.body;
+
+    if (!questions || !Array.isArray(questions)) {
+      return res.status(400).json({ error: "Invalid questions format" });
+    }
+
+    // Generate a short random room ID
+    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    const roomData = {
+      id: roomId,
+      subject,
+      title: title || `Quiz: ${subject}`,
+      questions,
+      createdAt: Date.now()
+    };
+
+    quizRooms.set(roomId, roomData);
+    console.log(`\n🏠 Created Quiz Room: ${roomId} (${roomData.title})`);
+
+    res.json({ roomId, url: `/quiz/${roomId}` });
+
+  } catch (error) {
+    console.error("❌ Room creation error:", error);
+    res.status(500).json({ error: "Failed to create quiz room" });
+  }
+});
+
+// Get Quiz Room Endpoint
+app.get("/quiz/:roomId", (req, res) => {
+  const roomId = req.params.roomId;
+  const room = quizRooms.get(roomId);
+
+  if (!room) {
+    return res.status(404).json({ error: "Quiz room not found" });
+  }
+
+  res.json(room);
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
@@ -185,8 +255,93 @@ app.use((err, req, res, next) => {
   next();
 });
 
-app.listen(PORT, () => {
+// Socket.io Logic
+io.on("connection", (socket) => {
+  console.log(`🔌 User connected: ${socket.id}`);
+
+  socket.on("join_room", ({ roomId, username }) => {
+    const room = quizRooms.get(roomId);
+    if (!room) {
+      socket.emit("error", "Room not found");
+      return;
+    }
+
+    socket.join(roomId);
+
+    // Add user to room
+    if (!room.players) room.players = [];
+    room.players.push({ id: socket.id, username, score: 0 });
+
+    console.log(`👤 ${username} joined room ${roomId}`);
+
+    // Broadcast updated player list
+    io.to(roomId).emit("player_joined", room.players);
+  });
+
+  socket.on("start_quiz", ({ roomId }) => {
+    const room = quizRooms.get(roomId);
+    if (!room) return;
+
+    console.log(`🚀 Quiz started in room ${roomId}`);
+    io.to(roomId).emit("quiz_started");
+
+    // Start first question
+    startQuestion(roomId, 0);
+  });
+
+  socket.on("submit_answer", ({ roomId, questionIndex, answer }) => {
+    const room = quizRooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (player) {
+      const question = room.questions[questionIndex];
+      if (question && question.correctAnswer === answer) {
+        player.score += 1;
+      }
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`🔌 User disconnected: ${socket.id}`);
+    // Ideally remove player from rooms, but for simplicity we keep them
+  });
+});
+
+function startQuestion(roomId, index) {
+  const room = quizRooms.get(roomId);
+  if (!room || index >= room.questions.length) {
+    // End Quiz
+    io.to(roomId).emit("quiz_ended", { leaderboard: room.players.sort((a, b) => b.score - a.score) });
+    return;
+  }
+
+  const question = room.questions[index];
+
+  // Send question
+  io.to(roomId).emit("new_question", {
+    question: question.question,
+    options: question.options,
+    index: index,
+    total: room.questions.length,
+    timeLeft: 20
+  });
+
+  // Timer
+  let timeLeft = 20;
+  const timer = setInterval(() => {
+    timeLeft--;
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      // Next question
+      startQuestion(roomId, index + 1);
+    }
+  }, 1000);
+}
+
+httpServer.listen(PORT, () => {
   console.log(`✓ Server running on http://localhost:${PORT}`);
   console.log(`✓ Upload endpoint: POST /upload/:subject_name`);
   console.log(`✓ Ask endpoint: POST /ask/:subject_name`);
+  console.log(`✓ Socket.io running`);
 });

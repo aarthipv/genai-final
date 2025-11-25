@@ -32,3 +32,18 @@ export const askQuestion = async (question: string, subject: string) => {
     const response = await api.post(`/ask/${subject}`, { question });
     return response.data;
 };
+
+export const generateQuiz = async (subject: string) => {
+    const response = await api.post(`/quiz/generate/${subject}`);
+    return response.data.quiz;
+};
+
+export const createQuizRoom = async (subject: string, questions: any[], title?: string) => {
+    const response = await api.post("/quiz/create", { subject, questions, title });
+    return response.data;
+};
+
+export const getQuizRoom = async (roomId: string) => {
+    const response = await api.get(`/quiz/${roomId}`);
+    return response.data;
+};

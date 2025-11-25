@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { ChatArea } from "./components/ChatArea";
 import { InputBox } from "./components/InputBox";
 import { UploadModal } from "./components/UploadModal";
-import { askQuestion } from "./lib/api";
-import { Menu } from "lucide-react";
+import { QuizRoom } from "./components/QuizRoom";
+import { askQuestion, generateQuiz, createQuizRoom } from "./lib/api";
+import { Menu, Copy, Check, Loader2 } from "lucide-react";
 
 interface Message {
   role: "user" | "ai";
@@ -19,7 +21,7 @@ interface ChatSession {
   timestamp: number;
 }
 
-function App() {
+function ChatLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [currentSubject, setCurrentSubject] = useState("");
@@ -28,6 +30,11 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+
+  // Quiz State
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [quizLink, setQuizLink] = useState("");
+  const [copied, setCopied] = useState(false);
 
   // Load state from local storage on mount
   useEffect(() => {
@@ -54,6 +61,7 @@ function App() {
     setMessages([]);
     setCurrentChatId(null);
     setCurrentSubject("");
+    setQuizLink("");
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
@@ -63,6 +71,7 @@ function App() {
       setCurrentChatId(chat.id);
       setMessages(chat.messages);
       setCurrentSubject(chat.subject);
+      setQuizLink("");
       if (window.innerWidth < 768) setIsSidebarOpen(false);
     }
   };
@@ -72,7 +81,6 @@ function App() {
       setSubjects((prev) => [...prev, subject]);
     }
     setCurrentSubject(subject);
-    // Start a new chat with this subject
     handleNewChat();
     setCurrentSubject(subject);
   };
@@ -94,7 +102,6 @@ function App() {
       const finalMessages = [...updatedMessages, newAiMessage];
       setMessages(finalMessages);
 
-      // Save or update chat session
       if (!currentChatId) {
         const newChatId = Date.now().toString();
         const newChat: ChatSession = {
@@ -134,6 +141,37 @@ function App() {
     }
   };
 
+  const handleCreateQuiz = async () => {
+    if (!currentSubject) return;
+
+    setIsGeneratingQuiz(true);
+    setQuizLink("");
+
+    try {
+      // 1. Generate Quiz Questions
+      const questions = await generateQuiz(currentSubject);
+
+      // 2. Create Quiz Room
+      const { roomId } = await createQuizRoom(currentSubject, questions);
+
+      // 3. Set Link
+      const link = `${window.location.origin}/quiz/${roomId}`;
+      setQuizLink(link);
+
+    } catch (error) {
+      console.error("Quiz creation failed:", error);
+      alert("Failed to create quiz. Please try again.");
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(quizLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="flex h-screen bg-white dark:bg-[#343541] overflow-hidden">
       <Sidebar
@@ -146,11 +184,10 @@ function App() {
         recentChats={chatSessions.map((c) => ({ id: c.id, title: c.title }))}
         onSelectChat={handleSelectChat}
         onClearChats={handleClearChats}
+        onCreateQuiz={handleCreateQuiz}
       />
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col h-full relative">
-        {/* Mobile Header */}
         <div className="md:hidden flex items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#343541]">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -161,7 +198,6 @@ function App() {
           <span className="ml-4 font-semibold text-gray-700 dark:text-gray-200">StudyMate AI</span>
         </div>
 
-        {/* Top Bar (Desktop) */}
         <div className="hidden md:flex items-center justify-center p-2 text-sm text-gray-500 border-b border-black/5 dark:border-white/5">
           <span className="font-medium">
             {currentSubject ? `Current Subject: ${currentSubject}` : "Select a subject to start"}
@@ -171,6 +207,60 @@ function App() {
         <ChatArea messages={messages} isLoading={isLoading} />
 
         <InputBox onSend={handleSendMessage} disabled={isLoading || !currentSubject} />
+
+        {/* Quiz Link Modal / Overlay */}
+        {(isGeneratingQuiz || quizLink) && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl max-w-md w-full border border-gray-200 dark:border-gray-700">
+              {isGeneratingQuiz ? (
+                <div className="flex flex-col items-center gap-4 py-8">
+                  <Loader2 size={48} className="animate-spin text-blue-500" />
+                  <p className="text-lg font-medium text-gray-700 dark:text-gray-200">Generating Quiz...</p>
+                  <p className="text-sm text-gray-500">Analyzing your documents</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Quiz Room Ready!</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Share this link with others to join the quiz room.
+                  </p>
+
+                  <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <input
+                      type="text"
+                      readOnly
+                      value={quizLink}
+                      className="flex-1 bg-transparent text-sm text-gray-800 dark:text-gray-200 outline-none"
+                    />
+                    <button
+                      onClick={copyToClipboard}
+                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-md transition-colors"
+                    >
+                      {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-gray-500" />}
+                    </button>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <a
+                      href={quizLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 py-2 bg-blue-600 text-white text-center rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      Open Quiz
+                    </a>
+                    <button
+                      onClick={() => setQuizLink("")}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <UploadModal
@@ -180,6 +270,17 @@ function App() {
         onUploadComplete={handleUploadComplete}
       />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<ChatLayout />} />
+        <Route path="/quiz/:roomId" element={<QuizRoom />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

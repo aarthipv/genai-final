@@ -12,6 +12,7 @@ interface SidebarProps {
     recentChats: { id: string; title: string }[];
     onSelectChat: (id: string) => void;
     onClearChats: () => void;
+    onCreateQuiz: () => void;
 }
 
 export function Sidebar({
@@ -24,6 +25,7 @@ export function Sidebar({
     recentChats,
     onSelectChat,
     onClearChats,
+    onCreateQuiz,
 }: SidebarProps) {
     return (
         <div
@@ -95,6 +97,14 @@ export function Sidebar({
 
             {/* Footer Actions */}
             <div className="p-4 border-t border-gray-800 space-y-2">
+                <button
+                    onClick={onCreateQuiz}
+                    disabled={!currentSubject}
+                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-800 rounded-lg transition-colors text-sm text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <BookOpen size={16} />
+                    Create Quiz Room
+                </button>
                 <button
                     onClick={onUpload}
                     className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-800 rounded-lg transition-colors text-sm text-gray-300"

@@ -82,12 +82,12 @@ export async function saveBatchToFaiss(documents, subjectName) {
 
     // Check if FAISS index already exists
     let vectorStore;
-    
+
     if (fs.existsSync(faissPath)) {
       console.log(`   📂 Loading existing FAISS index from: ${faissPath}`);
       // Load existing vector store
       vectorStore = await FaissStore.load(faissPath, embeddings);
-      
+
       // Add new documents
       await vectorStore.addDocuments(
         texts.map((text, i) => ({
@@ -95,7 +95,7 @@ export async function saveBatchToFaiss(documents, subjectName) {
           metadata: metadatas[i]
         }))
       );
-      
+
       console.log(`   ✅ Added ${documents.length} new documents to existing index`);
     } else {
       console.log(`   📝 Creating new FAISS index`);
@@ -105,7 +105,7 @@ export async function saveBatchToFaiss(documents, subjectName) {
         metadatas,
         embeddings
       );
-      
+
       console.log(`   ✅ Created new index with ${documents.length} documents`);
     }
 
@@ -171,10 +171,10 @@ export async function queryFaiss(queryText, subjectName, topK = 10) {
  */export async function askSubject(question, subjectName, topK = 5) {
   try {
     console.log(`\n💬 Answering question for subject "${subjectName}": ${question}`);
-    
+
     // Step 1: Retrieve relevant documents from FAISS
     const results = await queryFaiss(question, subjectName, topK);
-    
+
     if (!results || results.length === 0) {
       console.log(`⚠️  No documents found for subject "${subjectName}"`);
       return {
@@ -229,6 +229,77 @@ Answer:`;
 
   } catch (err) {
     console.error("❌ Error in askSubject:", err);
+    throw err;
+  }
+}
+/**
+ * Generate a 5-question MCQ quiz for a subject
+ */
+export async function generateQuiz(subjectName) {
+  try {
+    console.log(`\n🧠 Generating quiz for subject "${subjectName}"...`);
+
+    // Step 1: Retrieve broad context (query for "key concepts")
+    const results = await queryFaiss("key concepts definitions summary importance", subjectName, 8);
+
+    if (!results || results.length === 0) {
+      throw new Error(`No content found for subject: ${subjectName}`);
+    }
+
+    const context = results.map(r => r.text).join("\n\n");
+
+    // Step 2: Prompt LLaMA to generate JSON quiz
+    const prompt = `You are a teacher. Create a quiz with 5 multiple-choice questions based strictly on the context below.
+Return ONLY a raw JSON array. Do not include markdown formatting like \`\`\`json.
+
+Format:
+[
+  {
+    "question": "Question text?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": "Option A" // Must match one of the options exactly
+  }
+]
+
+Context:
+${context}
+
+JSON Output:`;
+
+    console.log(`🤖 Asking LLaMA to generate quiz JSON...`);
+
+    const hfResponse = await hf.chatCompletion({
+      model: "meta-llama/Llama-3.2-3B-Instruct",
+      messages: [
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 1000,
+      temperature: 0.5 // Lower temperature for more structured output
+    });
+
+    let content = hfResponse.choices[0].message.content.trim();
+
+    // Clean up potential markdown code blocks
+    content = content.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    // Extract JSON array if there's extra text
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      content = jsonMatch[0];
+    }
+
+    // Parse JSON
+    try {
+      const quiz = JSON.parse(content);
+      console.log(`✅ Generated ${quiz.length} questions successfully`);
+      return quiz;
+    } catch (parseError) {
+      console.error("❌ Failed to parse quiz JSON:", content);
+      throw new Error("Failed to generate valid quiz JSON");
+    }
+
+  } catch (err) {
+    console.error("❌ Error in generateQuiz:", err);
     throw err;
   }
 }
