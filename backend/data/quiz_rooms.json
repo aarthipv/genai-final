@@ -1,0 +1,198 @@
+{
+  "QGZNHE": {
+    "id": "QGZNHE",
+    "subject": "Persistence Test",
+    "title": "Persistence Verification Quiz",
+    "questions": [
+      {
+        "question": "What is persistence?",
+        "options": [
+          "Storing data permanently",
+          "Deleting data",
+          "Ignoring data",
+          "None"
+        ],
+        "correctAnswer": "Storing data permanently"
+      }
+    ],
+    "createdAt": 1764050408879,
+    "sessionId": "test-session-1764050408860"
+  },
+  "2ZCQBS": {
+    "id": "2ZCQBS",
+    "subject": "map",
+    "title": "Quiz: map",
+    "questions": [
+      {
+        "question": "What type of programming models share all data unless otherwise specified?",
+        "options": [
+          "Directive-based",
+          "Library-based",
+          "Thread-based",
+          "Parallel-based"
+        ],
+        "correctAnswer": "Library-based"
+      },
+      {
+        "question": "What is the purpose of synchronization between concurrent tasks?",
+        "options": [
+          "To improve CPU utilization",
+          "To reduce memory usage",
+          "To ensure thread safety",
+          "To synchronize concurrent tasks"
+        ],
+        "correctAnswer": "To synchronize concurrent tasks"
+      },
+      {
+        "question": "What type of architectures have a shared address space?",
+        "options": [
+          "Exclusive",
+          "Shared",
+          "Global",
+          "Private"
+        ],
+        "correctAnswer": "Shared"
+      },
+      {
+        "question": "What is a thread in the context of parallel programming?",
+        "options": [
+          "A single stream of control",
+          "A separate process",
+          "A shared resource",
+          "A program unit"
+        ],
+        "correctAnswer": "A single stream of control"
+      },
+      {
+        "question": "Which programming language is used for directive-based models?",
+        "options": [
+          "C++",
+          "Java",
+          "Python",
+          "CilkPlus"
+        ],
+        "correctAnswer": "CilkPlus"
+      }
+    ],
+    "createdAt": 1764050567014,
+    "sessionId": "70a6ffdc-ceeb-4d3f-9fc5-a80c5bfe9e41"
+  },
+  "0EZM5U": {
+    "id": "0EZM5U",
+    "subject": "map",
+    "title": "Quiz: map",
+    "questions": [
+      {
+        "question": "What is the primary characteristic of library-based models in threaded programming?",
+        "options": [
+          "Data is private unless specified",
+          "Data is shared unless specified",
+          "Thread creation is implicit",
+          "Thread synchronization is explicit"
+        ],
+        "correctAnswer": "Data is shared unless specified"
+      },
+      {
+        "question": "What is the primary characteristic of shared address space architectures?",
+        "options": [
+          "Implicit memory access",
+          "Explicit memory access",
+          "Global memory access",
+          "Shared memory access"
+        ],
+        "correctAnswer": "Implicit memory access"
+      },
+      {
+        "question": "What is the primary characteristic of directive-based models in threaded programming?",
+        "options": [
+          "Data is private by default",
+          "Data is shared by default",
+          "Thread creation is explicit",
+          "Thread synchronization is implicit"
+        ],
+        "correctAnswer": "Data is shared by default"
+      },
+      {
+        "question": "What is the primary characteristic of CilkPlus?",
+        "options": [
+          "A directive-based model",
+          "A library-based model",
+          "A shared address space architecture",
+          "A programming language"
+        ],
+        "correctAnswer": "A directive-based model"
+      },
+      {
+        "question": "What is the primary characteristic of CUDA?",
+        "options": [
+          "A library-based model",
+          "A directive-based model",
+          "A shared address space architecture",
+          "A programming language"
+        ],
+        "correctAnswer": "A directive-based model"
+      }
+    ],
+    "createdAt": 1764051581393,
+    "sessionId": "70a6ffdc-ceeb-4d3f-9fc5-a80c5bfe9e41"
+  },
+  "SH7FJN": {
+    "id": "SH7FJN",
+    "subject": "map",
+    "title": "Quiz: map",
+    "questions": [
+      {
+        "question": "What type of programming model is OpenMP?",
+        "options": [
+          "Library-based model",
+          "Directive-based model",
+          "Shared address space architecture",
+          "Thread creation and synchronization"
+        ],
+        "correctAnswer": "Directive-based model"
+      },
+      {
+        "question": "What is the primary assumption made by threads in a shared address space architecture?",
+        "options": [
+          "Some memory is accessible to all processors",
+          "All memory is global",
+          "Some processors have access to memory",
+          "None of the above"
+        ],
+        "correctAnswer": "All memory is global"
+      },
+      {
+        "question": "What is a single stream of control in the flow of a program?",
+        "options": [
+          "A thread",
+          "A process",
+          "A program",
+          "A CPU"
+        ],
+        "correctAnswer": "A thread"
+      },
+      {
+        "question": "What is shared among threads within the same process?",
+        "options": [
+          "Resources",
+          "Memory",
+          "CPU",
+          "I/O devices"
+        ],
+        "correctAnswer": "Resources"
+      },
+      {
+        "question": "What type of programming model is Pthreads?",
+        "options": [
+          "Library-based model",
+          "Directive-based model",
+          "Shared address space architecture",
+          "Thread creation and synchronization"
+        ],
+        "correctAnswer": "Library-based model"
+      }
+    ],
+    "createdAt": 1764051608282,
+    "sessionId": "70a6ffdc-ceeb-4d3f-9fc5-a80c5bfe9e41"
+  }
+}

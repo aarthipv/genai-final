@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
-import { Loader2, AlertCircle, CheckCircle, XCircle, Trophy, Home, Users, Clock, Play } from "lucide-react";
+import { AlertCircle, CheckCircle, Trophy, Home, Users, Clock, Play } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const SOCKET_URL = "http://localhost:5003";

@@ -6,6 +6,14 @@ import { fileURLToPath } from "url";
 import { extractPDFText } from "./pdfutils.js";
 import { chunkText } from "./chunk.js";
 import { saveBatchToFaiss, askSubject, generateQuiz } from "./rag.js";
+import {
+  saveSubject,
+  saveUploadMetadata,
+  saveQuizRoom,
+  getQuizRoom as getPersistedQuizRoom,
+  getSubjects,
+  getUserRooms
+} from "./persistence.js";
 
 import cors from "cors";
 
@@ -128,6 +136,14 @@ app.post("/upload/:subject_name", upload.single("pdf"), async (req, res) => {
     console.log(`\n🔄 Generating embeddings and saving to FAISS...`);
     const result = await saveBatchToFaiss(documents, subjectName);
 
+    // Step 5: Persist metadata
+    saveUploadMetadata(subjectName, {
+      filename: fileName,
+      path: filePath,
+      uploadDate: new Date().toISOString(),
+      size: req.file.size
+    });
+
     console.log(`\n🎉 Complete pipeline finished successfully!`);
 
     res.json({
@@ -187,8 +203,23 @@ app.post("/ask/:subject_name", async (req, res) => {
   }
 });
 
-// Quiz Room Storage (In-memory)
-const quizRooms = new Map();
+// Quiz Room Storage (In-memory for active game state)
+const activeQuizRooms = new Map();
+
+// Get Subjects Endpoint
+app.get("/subjects", (req, res) => {
+  res.json(getSubjects());
+});
+
+// Get User's Quiz Rooms Endpoint
+app.get("/quiz/my-rooms", (req, res) => {
+  const sessionId = req.query.sessionId;
+  if (!sessionId) {
+    return res.status(400).json({ error: "Session ID required" });
+  }
+  const rooms = getUserRooms(sessionId);
+  res.json(rooms);
+});
 
 // Generate Quiz Endpoint
 app.post("/quiz/generate/:subject_name", async (req, res) => {
@@ -205,7 +236,7 @@ app.post("/quiz/generate/:subject_name", async (req, res) => {
 // Create Quiz Room Endpoint
 app.post("/quiz/create", (req, res) => {
   try {
-    const { subject, questions, title } = req.body;
+    const { subject, questions, title, sessionId } = req.body;
 
     if (!questions || !Array.isArray(questions)) {
       return res.status(400).json({ error: "Invalid questions format" });
@@ -219,10 +250,19 @@ app.post("/quiz/create", (req, res) => {
       subject,
       title: title || `Quiz: ${subject}`,
       questions,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      sessionId: sessionId // Associate with creator
     };
 
-    quizRooms.set(roomId, roomData);
+    // Save to persistence
+    saveQuizRoom(roomData);
+
+    // Initialize in-memory active room
+    activeQuizRooms.set(roomId, {
+      ...roomData,
+      players: []
+    });
+
     console.log(`\n🏠 Created Quiz Room: ${roomId} (${roomData.title})`);
 
     res.json({ roomId, url: `/quiz/${roomId}` });
@@ -236,7 +276,21 @@ app.post("/quiz/create", (req, res) => {
 // Get Quiz Room Endpoint
 app.get("/quiz/:roomId", (req, res) => {
   const roomId = req.params.roomId;
-  const room = quizRooms.get(roomId);
+
+  // Check active rooms first
+  let room = activeQuizRooms.get(roomId);
+
+  // If not active, check persistence
+  if (!room) {
+    room = getPersistedQuizRoom(roomId);
+    if (room) {
+      // Hydrate active room
+      activeQuizRooms.set(roomId, {
+        ...room,
+        players: []
+      });
+    }
+  }
 
   if (!room) {
     return res.status(404).json({ error: "Quiz room not found" });
@@ -260,7 +314,17 @@ io.on("connection", (socket) => {
   console.log(`🔌 User connected: ${socket.id}`);
 
   socket.on("join_room", ({ roomId, username }) => {
-    const room = quizRooms.get(roomId);
+    let room = activeQuizRooms.get(roomId);
+
+    // Try to hydrate from persistence if not active
+    if (!room) {
+      const persistedRoom = getPersistedQuizRoom(roomId);
+      if (persistedRoom) {
+        room = { ...persistedRoom, players: [] };
+        activeQuizRooms.set(roomId, room);
+      }
+    }
+
     if (!room) {
       socket.emit("error", "Room not found");
       return;
@@ -279,7 +343,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("start_quiz", ({ roomId }) => {
-    const room = quizRooms.get(roomId);
+    const room = activeQuizRooms.get(roomId);
     if (!room) return;
 
     console.log(`🚀 Quiz started in room ${roomId}`);
@@ -290,7 +354,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submit_answer", ({ roomId, questionIndex, answer }) => {
-    const room = quizRooms.get(roomId);
+    const room = activeQuizRooms.get(roomId);
     if (!room) return;
 
     const player = room.players.find(p => p.id === socket.id);
@@ -309,7 +373,7 @@ io.on("connection", (socket) => {
 });
 
 function startQuestion(roomId, index) {
-  const room = quizRooms.get(roomId);
+  const room = activeQuizRooms.get(roomId);
   if (!room || index >= room.questions.length) {
     // End Quiz
     io.to(roomId).emit("quiz_ended", { leaderboard: room.players.sort((a, b) => b.score - a.score) });

@@ -39,7 +39,7 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
     };
 
     return (
-        <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent dark:from-gray-800 dark:via-gray-800 pt-10 pb-6 px-4">
+        <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900 pt-10 pb-6 px-4">
             <div className="max-w-3xl mx-auto relative">
                 <div className="relative flex items-end w-full p-3 bg-white dark:bg-[#40414F] border border-black/10 dark:border-none rounded-xl shadow-md overflow-hidden ring-offset-2 focus-within:ring-2 ring-blue-500/50">
                     <textarea
